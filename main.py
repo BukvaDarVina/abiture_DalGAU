@@ -1,49 +1,42 @@
-from fastapi import FastAPI
+import uuid
+
+from fastapi import FastAPI, Depends
+from fastapi_users import fastapi_users, FastAPIUsers
+
+from auth.auth import auth_backend
+from auth.database import User
+from auth.manager import get_user_manager
+from auth.schemas import UserRead, UserCreate
+
+app = FastAPI(
+    title="Abiture_DalGAU"
+)
+
+fastapi_users = FastAPIUsers[User, uuid.UUID](
+    get_user_manager,
+    [auth_backend],
+)
+
+app.include_router(
+    fastapi_users.get_auth_router(auth_backend),
+    prefix="/auth/jwt",
+    tags=["auth"],
+)
+
+app.include_router(
+    fastapi_users.get_register_router(UserRead, UserCreate),
+    prefix="/auth",
+    tags=["auth"],
+)
+
+current_user = fastapi_users.current_user()
 
 
-# from pydantic import BaseModel
-# from pydantic_extra_types.pendulum_dt import Date
-# from rich.json import JSON
-
-app = FastAPI()
-
-# class Event(BaseModel):
-#     id: int
-#     event_autor_id: int
-#     event_name: str
-#     event_start: Date
-#     event_finish: Date
-#     event_description: str
-#     event_imgs_urls: JSON
-#     event_banner_url: str
-#     application_form_id: int
-#     feedback_form_id: int
-#     survey_form_id: int
+@app.get("/protected-route")
+def protected_route(user: User = Depends(current_user)):
+    return f"Hello, {user.name}"
 
 
-fake_base = [
-    {"id": 1, "role": "admin", "name": "Bob"},
-    {"id": 2, "role": "investor", "name": "Bob"},
-    {"id": 3, "role": "trader", "name": "Matt"},
-]
-
-
-@app.get("/users/{user_id}")
-def get_user(user_id: int):
-    return [user for user in fake_base if user.get("id") == user_id]
-
-
-# fake_base2 = [
-#     {"id": 1, "role": "admin", "name": "Bob"},
-#     {"id": 2, "role": "investor", "name": "Bob"},
-#     {"id": 3, "role": "trader", "name": "Matt"},
-# ]
-
-
-@app.post("/users/{user_id}")
-def change_user_name(user_id: int, new_name: str):
-    current_user = list(filter(lambda user: user.get("id") == user_id, fake_base))[0]
-    current_user["name"] = new_name
-    return {"status": 200, "data": current_user}
-
-
+@app.get("/unprotected-route")
+def unprotected_route():
+    return f"Hello, anonym"
